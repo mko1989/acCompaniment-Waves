@@ -624,8 +624,6 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
     });
 
     // Note: reset-inactivity-timer listener removal not needed as no listener was registered
-
-    // OSC and mixer integration handlers removed as per requirements
     
     // Handler for 'get-or-generate-waveform-peaks' registered
 
@@ -635,7 +633,6 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
             if (mainWindowRef && mainWindowRef.webContents && !mainWindowRef.webContents.isDestroyed()) {
                 mainWindowRef.webContents.send('app-config-updated', newConfig);
             }
-            // Mixer integration settings update removed as per requirements
             // Update HTTP server with new config (for port changes, etc.)
             if (httpServerRef && typeof httpServerRef.updateConfig === 'function') {
                 httpServerRef.updateConfig(newConfig);
@@ -644,8 +641,6 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
     } else {
         console.error("IPC_HANDLERS_INIT: appConfigManagerRef or onConfigChange is not available.");
     }
-
-    // Wing button configuration handlers removed as per requirements
     
     // Playlist Navigation Handlers
     ipcMain.handle('playlist-navigate-next', async (event, cueId) => {
@@ -673,6 +668,23 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
             return { success: true };
         }
         return { success: false, error: 'Main window not available' };
+    });
+
+    // Handler for showing file dialog (for plus button functionality)
+    ipcMain.handle('show-open-file-dialog', async (event, options) => {
+        console.log('IPC_HANDLER: show-open-file-dialog called with options:', options);
+        try {
+            const result = await dialog.showOpenDialog(mainWindowRef, {
+                title: options.title || 'Select Files',
+                properties: options.properties || ['openFile'],
+                filters: options.filters || []
+            });
+            console.log('IPC_HANDLER: show-open-file-dialog result:', result);
+            return result;
+        } catch (error) {
+            console.error('IPC_HANDLER: Error showing file dialog:', error);
+            return { canceled: true, filePaths: [] };
+        }
     });
 
     ipcMain.handle('get-app-version', async (event) => {
@@ -772,23 +784,6 @@ function initialize(application, mainWin, cueMgrModule, appCfgManager, wsMgr, ws
         }
         return 0;
     }
-
-    // Handler for showing file dialog (for plus button functionality)
-    ipcMain.handle('show-open-file-dialog', async (event, options) => {
-        console.log('IPC_HANDLER: show-open-file-dialog called with options:', options);
-        try {
-            const result = await dialog.showOpenDialog(mainWindowRef, {
-                title: options.title || 'Select Files',
-                properties: options.properties || ['openFile'],
-                filters: options.filters || []
-            });
-            console.log('IPC_HANDLER: show-open-file-dialog result:', result);
-            return result;
-        } catch (error) {
-            console.error('IPC_HANDLER: Error showing file dialog:', error);
-            return { canceled: true, filePaths: [] };
-        }
-    });
 }
 
 // Theme handling function (not directly part of initialize, but used by it and menu)
