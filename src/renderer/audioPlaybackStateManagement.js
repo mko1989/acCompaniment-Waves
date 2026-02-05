@@ -104,10 +104,16 @@ export function _cleanupSoundInstance(cueId, state, options = {}, context) {
         currentlyPlaying,
         playbackIntervals,
         pendingRestarts,
-        sidebarsAPIRef,
+        sidebarsAPIRef: sidebarsAPIRefFromContext,
+        sidebarsAPI: sidebarsAPIFromContext,
+        cueGridAPIRef: cueGridAPIRefFromContext,
+        cueGridAPI: cueGridAPIFromContext,
         _removeFromPlayOrder,
         _updateCurrentCueForCompanion
     } = context;
+
+    const sidebarsAPIRef = sidebarsAPIRefFromContext || sidebarsAPIFromContext;
+    const cueGridAPIRef = cueGridAPIRefFromContext || cueGridAPIFromContext;
 
     const { 
         forceUnload = false, 
@@ -237,8 +243,8 @@ export function _cleanupSoundInstance(cueId, state, options = {}, context) {
     state.meterAnalyser = null;
     state.meterDataArray = null;
 
-    if (context && context.cueGridAPIRef && typeof context.cueGridAPIRef.resetCueMeter === 'function') {
-        context.cueGridAPIRef.resetCueMeter(cueId, { immediate: true });
+if (cueGridAPIRef && typeof cueGridAPIRef.resetCueMeter === 'function') {
+    cueGridAPIRef.resetCueMeter(cueId, { immediate: true });
     }
 
     state.meterCalibrationMax = null;
@@ -269,7 +275,7 @@ export function getPlaybackState(cueId, context) {
     // Also ensure sound is not null and has valid duration to prevent false "playing" states
     if (sound && sound.playing && typeof sound.playing === 'function' && sound.playing() && 
         sound.duration && sound.duration() > 0 && // Ensure sound has valid duration
-        !(playingState.isPlaylist && (playingState.isCuedNext || playingState.isPaused))) {
+        !(playingState.isPlaylist && (playingState.isCuedNext || playingState.isPaused || playingState.isCued))) { // Add isCued explicitly
         // Cache time calculations to avoid repeated calls
         const times = getPlaybackTimesUtilRef ? getPlaybackTimesUtilRef(
             sound, 
@@ -375,6 +381,7 @@ export function getPlaybackState(cueId, context) {
         response.itemBaseDuration = itemBaseDuration;
         response.currentPlaylistItemName = currentPlaylistItemName;
         response.nextPlaylistItemName = nextPlaylistItemName;
+        response.instanceCount = playingState.instanceCount || 1;
         
         return response;
     } else if (playingState) {

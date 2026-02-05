@@ -90,14 +90,14 @@ button:active, .btn:active {
     margin: 0 !important; /* Ensure no margin on icon itself */
 }
 
-/* Add Files Button styling to match other buttons */
+/* Add Files button (Waves LV1 Classic: add cues without drag-and-drop) */
 #addFilesButton {
-    padding: 0 !important; 
-    width: 60px !important; 
+    padding: 0 !important;
+    width: 60px !important;
     height: 60px !important;
     background-color: #555 !important;
     border: 1px solid #666 !important;
-    display: inline-flex !important; 
+    display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     font-size: 32px !important;

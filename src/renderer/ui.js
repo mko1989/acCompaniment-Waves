@@ -535,12 +535,10 @@ function isUIFullyInitialized() { // NEW GETTER
     return isUIModuleFullyInitialized;
 }
 
-// Handler for the Add Files button click
+// --- Plus button (Waves LV1 Classic: add files as cues without drag-and-drop) ---
 async function handleAddFilesButtonClick() {
     console.log('UI Core: Add Files button clicked');
-    
     try {
-        // Call the main process to show file dialog
         const result = await electronAPIForPreload.showOpenFileDialog({
             title: 'Select Audio Files',
             properties: ['openFile', 'multiSelections'],
@@ -549,20 +547,14 @@ async function handleAddFilesButtonClick() {
                 { name: 'All Files', extensions: ['*'] }
             ]
         });
-
         if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
             console.log('UI Core: File dialog canceled or no files selected');
             return;
         }
-
         const selectedFiles = result.filePaths;
-        console.log('UI Core: Files selected:', selectedFiles);
-
         if (selectedFiles.length === 1) {
-            // Single file - create a single cue
             await handleSingleFileSelection(selectedFiles[0]);
         } else {
-            // Multiple files - ask user whether to create multiple cues or playlist
             await handleMultipleFileSelection(selectedFiles);
         }
     } catch (error) {
@@ -571,81 +563,48 @@ async function handleAddFilesButtonClick() {
     }
 }
 
-// Handle single file selection
 async function handleSingleFileSelection(filePath) {
-    console.log('UI Core: Creating single cue for file:', filePath);
-    
     try {
         const activeAppConfig = appConfigUIModuleInternal.getCurrentAppConfig();
         if (!activeAppConfig) {
-            console.error("UI Core: App config not available!");
             alert('Error: App configuration is not loaded. Cannot create cue.');
             return;
         }
-
         const cueId = await electronAPIForPreload.generateUUID();
         const fileName = filePath.split(/[\\\/]/).pop();
         const cueName = fileName.split('.').slice(0, -1).join('.') || 'New Cue';
-        
         const newCueData = {
-            id: cueId, 
-            name: cueName, 
-            type: 'single_file', 
-            filePath: filePath,
+            id: cueId, name: cueName, type: 'single_file', filePath: filePath,
             volume: activeAppConfig.defaultVolume,
             fadeInTime: activeAppConfig.defaultFadeInTime,
             fadeOutTime: activeAppConfig.defaultFadeOutTime,
             loop: activeAppConfig.defaultLoopSingleCue,
             retriggerBehavior: activeAppConfig.defaultRetriggerBehavior,
-            shuffle: false, 
-            repeatOne: false, 
-            trimStartTime: null, 
-            trimEndTime: null,
+            shuffle: false, repeatOne: false, trimStartTime: null, trimEndTime: null,
         };
-
         if (!cueStoreModule) {
-            console.error('UI Core: cueStoreModule is not initialized!');
             alert('Error: Cue store not available. Cannot create cue.');
             return;
         }
-
         await cueStoreModule.addOrUpdateCue(newCueData);
-        console.log("UI Core: Successfully created single cue");
     } catch (error) {
         console.error('UI Core: Error creating single cue:', error);
         alert('Error creating cue: ' + error.message);
     }
 }
 
-// Handle multiple file selection
 async function handleMultipleFileSelection(filePaths) {
-    console.log('UI Core: Multiple files selected, showing choice modal');
-    
-    // Show a modal asking whether to create multiple cues or a playlist
     const choice = await showMultipleFilesChoiceModal(filePaths);
-    
-    if (choice === 'cancel') {
-        console.log('UI Core: User canceled multiple file selection');
-        return;
-    }
-    
+    if (choice === 'cancel') return;
     if (choice === 'separate') {
-        // Create separate cues for each file
-        console.log('UI Core: Creating separate cues for each file');
-        for (const filePath of filePaths) {
-            await handleSingleFileSelection(filePath);
-        }
+        for (const filePath of filePaths) await handleSingleFileSelection(filePath);
     } else if (choice === 'playlist') {
-        // Create a single playlist cue
-        console.log('UI Core: Creating playlist cue');
         await handlePlaylistCreation(filePaths);
     }
 }
 
-// Show modal for multiple file choice
-async function showMultipleFilesChoiceModal(filePaths) {
+function showMultipleFilesChoiceModal(filePaths) {
     return new Promise((resolve) => {
-        // Create modal HTML
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.style.display = 'block';
@@ -661,97 +620,46 @@ async function showMultipleFilesChoiceModal(filePaths) {
                 </div>
             </div>
         `;
-        
         document.body.appendChild(modal);
-        
-        // Event handlers
-        const closeModal = () => {
-            document.body.removeChild(modal);
-        };
-        
-        modal.querySelector('.close-button').addEventListener('click', () => {
-            closeModal();
-            resolve('cancel');
-        });
-        
-        modal.querySelector('#modalAddAsSeparateCues').addEventListener('click', () => {
-            closeModal();
-            resolve('separate');
-        });
-        
-        modal.querySelector('#modalAddAsPlaylistCue').addEventListener('click', () => {
-            closeModal();
-            resolve('playlist');
-        });
-        
-        modal.querySelector('#modalCancelMultipleFiles').addEventListener('click', () => {
-            closeModal();
-            resolve('cancel');
-        });
-        
-        // Close on background click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                closeModal();
-                resolve('cancel');
-            }
-        });
+        const closeModal = () => { try { document.body.removeChild(modal); } catch (_) {} };
+        modal.querySelector('.close-button').addEventListener('click', () => { closeModal(); resolve('cancel'); });
+        modal.querySelector('#modalAddAsSeparateCues').addEventListener('click', () => { closeModal(); resolve('separate'); });
+        modal.querySelector('#modalAddAsPlaylistCue').addEventListener('click', () => { closeModal(); resolve('playlist'); });
+        modal.querySelector('#modalCancelMultipleFiles').addEventListener('click', () => { closeModal(); resolve('cancel'); });
+        modal.addEventListener('click', (e) => { if (e.target === modal) { closeModal(); resolve('cancel'); } });
     });
 }
 
-// Handle playlist creation
 async function handlePlaylistCreation(filePaths) {
-    console.log('UI Core: Creating playlist cue for files:', filePaths);
-    
     try {
         const activeAppConfig = appConfigUIModuleInternal.getCurrentAppConfig();
         if (!activeAppConfig) {
-            console.error("UI Core: App config not available!");
             alert('Error: App configuration is not loaded. Cannot create playlist.');
             return;
         }
-
         const cueId = await electronAPIForPreload.generateUUID();
         const playlistName = `Playlist ${new Date().toLocaleTimeString()}`;
-        
-        // Create playlist items from file paths
         const playlistItems = [];
         for (let i = 0; i < filePaths.length; i++) {
             const filePath = filePaths[i];
             const fileName = filePath.split(/[\\\/]/).pop();
             const itemName = fileName.split('.').slice(0, -1).join('.') || `Item ${i + 1}`;
             const itemId = await electronAPIForPreload.generateUUID();
-            playlistItems.push({
-                id: itemId,
-                name: itemName,
-                filePath: filePath,
-                order: i
-            });
+            playlistItems.push({ id: itemId, name: itemName, filePath: filePath, order: i });
         }
-        
         const newPlaylistData = {
-            id: cueId, 
-            name: playlistName, 
-            type: 'playlist', 
-            playlistItems: playlistItems,
+            id: cueId, name: playlistName, type: 'playlist', playlistItems,
             volume: activeAppConfig.defaultVolume,
             fadeInTime: activeAppConfig.defaultFadeInTime,
             fadeOutTime: activeAppConfig.defaultFadeOutTime,
-            loop: false, // Playlists typically don't loop by default
-            retriggerBehavior: activeAppConfig.defaultRetriggerBehavior,
-            shuffle: false, 
-            repeatOne: false,
-            playlistPlayMode: 'continue' // Default playlist behavior
+            loop: false, retriggerBehavior: activeAppConfig.defaultRetriggerBehavior,
+            shuffle: false, repeatOne: false, playlistPlayMode: 'continue'
         };
-
         if (!cueStoreModule) {
-            console.error('UI Core: cueStoreModule is not initialized!');
             alert('Error: Cue store not available. Cannot create playlist.');
             return;
         }
-
         await cueStoreModule.addOrUpdateCue(newPlaylistData);
-        console.log("UI Core: Successfully created playlist cue");
     } catch (error) {
         console.error('UI Core: Error creating playlist:', error);
         alert('Error creating playlist: ' + error.message);
